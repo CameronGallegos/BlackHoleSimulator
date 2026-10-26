@@ -1,0 +1,11 @@
+# CMake build files
+build/
+cmake-build-*/
+
+# Compiled programs
+*.exe
+*.o
+*.obj
+
+# VS Code local settings
+.vscode/
