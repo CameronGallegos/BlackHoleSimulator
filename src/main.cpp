@@ -8,6 +8,15 @@ int main(){
     const float centerX = windowWidth / 2.0;
     const float centerY = windowHeight / 2.0;
     const float starRadOG = 30.0;
+    //below will be our math constants
+    // constexpr is like a super const, cannot change whatsoever or it is an error
+    constexpr double G = 6.67430e-11;
+    constexpr double c = 299792458.0;
+    constexpr double metersPerPixel = 1000.0;
+    double starMass = 1.989e30; //mass of the sun but will change during real sims
+    double schwarzschildRadius = (2*G*starMass) / (c*c);
+    double schwarzschildRadiusPixels = schwarzschildRadius / metersPerPixel;
+
     sf::RenderWindow window; //so this is from the sfml. it is like an int or string but will open a window for us to mess wit
     //we could also have done below above but w/o using the .create because it would have used the constructor
     //for the 800x600. this is best for little projects, 1024x768 is a larger window, 1280x720 is for games, 1920x1080 is for full hd
@@ -38,11 +47,15 @@ int main(){
             }
         }
 
-        //so here we want the star to actually collapse, so we shrink it be .1 until we hit 0
-        if(star.getRadius() >= 0){
+        //so here we want the star to actually collapse, so we shrink until we get to our blackHole radius oooouuuu
+        if(star.getRadius() > schwarzschildRadiusPixels){
             //star shrinks 5 pixels per second now
             //our max function prevents it from being a negative value
-            star.setRadius(std::max(0.0f, star.getRadius() - 5.0f * timeChange));
+            //this got a bit messy but i think all can understand it
+            star.setRadius(std::max(
+                static_cast<float>(schwarzschildRadiusPixels), 
+                star.getRadius() - 5.0f * timeChange
+            ));
         }
 
 
