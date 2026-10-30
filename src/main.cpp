@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <algorithm>
-
+#include <vector>
+#include <random>
 
 int main(){
     const unsigned int windowWidth = 800;
@@ -12,7 +13,7 @@ int main(){
     // constexpr is like a super const, cannot change whatsoever or it is an error
     constexpr double G = 6.67430e-11;
     constexpr double c = 299792458.0;
-    constexpr double metersPerPixel = 1000.0;
+    constexpr double metersPerPixel = 500.0; //star really small, lets try 500
     double starMass = 1.989e30; //mass of the sun but will change during real sims
     double schwarzschildRadius = (2*G*starMass) / (c*c);
     double schwarzschildRadiusPixels = schwarzschildRadius / metersPerPixel;
@@ -28,6 +29,17 @@ int main(){
     star.setPosition({centerX - star.getRadius(), centerY - star.getRadius()});
     sf::Clock clock; //built in object from sfml, will help with the star disappearing almost instantly
 
+    //all the background stars
+    std::vector<sf::CircleShape> backgroundStars;
+    //okay now this part is not gonna look pretty... the rando stuff
+    std::mt19937 randomNumG(std::random_device{}()); //so mt generates random numbers, random dev gives a diff seed each time we run it
+    std::uniform_real_distribution<float> randomX(0.0f, static_cast<float>(windowWidth));
+    std::uniform_real_distribution<float> randomY(0.0f, static_cast<float>(windowHeight));
+    for(int i = 0; i <200; i++){
+        sf::CircleShape littleStar(1.0f);
+        littleStar.setPosition({randomX(randomNumG), randomY(randomNumG)});
+        backgroundStars.push_back(littleStar);
+    }
 
     while(window.isOpen()){
 
@@ -59,6 +71,14 @@ int main(){
         }
 
 
+        //you would think == would be preferred here but some simulations did not work...something to do with precision i expect
+        if(star.getRadius() <= static_cast<float>(schwarzschildRadiusPixels)){
+            star.setFillColor(sf::Color::Black); //this line is quite obvious
+            star.setOutlineColor(sf::Color::White); 
+            star.setOutlineThickness(2.0f);
+        }
+
+
 
 
 
@@ -66,6 +86,10 @@ int main(){
         //this will be at the bottom b/c we want to do all the math and fancy stuff and then draw what we calculated
         //clear window and fill with black...b/c its in space 
         window.clear(sf::Color::Black);
+        //draw background first because main star can draw over it
+        for(int i = 0; i < backgroundStars.size(); i++){
+            window.draw(backgroundStars[i]);
+        }
         window.draw(star);        
         window.display(); //this will display waht we draw before
 
