@@ -9,7 +9,8 @@ double calculateSchwarzschildRadius(double);
 std::vector<sf::CircleShape> randomBackgroundStars(unsigned int, unsigned int);
 float shrinkStar(float, float, float, float);
 double calculateDistance(double, double, double, double);
-std::vector<sf::CircleShape> applyGravLensing(std::vector<sf::CircleShape>, double, double);
+std::vector<sf::CircleShape> applyGravLensing(std::vector<sf::CircleShape>, double, double, 
+                                                double, std::vector<sf::VertexArray>&);
 
 
 int main(){
@@ -73,9 +74,12 @@ int main(){
             star.setOutlineThickness(2.0f);
         }
 
-        //need this for lensing
+        //V2f is just a vecotr taht is very convenient for holding x and y
         sf::Vector2f blackholePosition = star.getPosition();
-        std::vector<sf::CircleShape> lensedStars = applyGravLensing(backgroundStars, blackholePosition.x, blackholePosition.y);
+        double lensingStrength = 100000.0 * (1.0 - (star.getRadius() / starRadOG));
+        std::vector<sf::VertexArray> arcs;
+        std::vector<sf::CircleShape> lensedStars = applyGravLensing(backgroundStars, blackholePosition.x, blackholePosition.y, 
+                                                        lensingStrength, arcs);
 
 
 
@@ -86,18 +90,19 @@ int main(){
         for(int i = 0; i < lensedStars.size(); i++){
             window.draw(lensedStars[i]);
         }
+        //now lets draw the arcs
+        for(int i = 0; i < arcs.size(); i++){
+            window.draw(arcs[i]);
+        }
         window.draw(star);        
         window.display(); //this will display waht we drew before
 
 
     }
-
-
-
     return 0;
 }
 
-
+//self explanatory, just needed to clean up main
 double calculateSchwarzschildRadius(double starMass){
     //below will be our math constants
     // constexpr is like a super const, cannot change whatsoever or it is an error
@@ -150,14 +155,14 @@ double calculateDistance(double starX, double starY, double blackHx, double blac
     return std::sqrt(std::pow((starX - blackHx), 2) + std::pow((starY - blackHy), 2));
 }
 
-//
+//this one is ugly and long and i hope it is the hardest part of the project
 std::vector<sf::CircleShape> applyGravLensing(
     std::vector<sf::CircleShape> backgroundStars,
     double blackHoleX,
-    double blackHoleY){
+    double blackHoleY,
+    double lensStrength,
+    std::vector<sf::VertexArray>& arcs){
     
-    //just simplify this instead of the full calcllation
-    double lensingStrength = 1000.0;
 
     for (size_t i = 0; i < backgroundStars.size(); i++) {
 
@@ -172,18 +177,47 @@ std::vector<sf::CircleShape> applyGravLensing(
             blackHoleY
         );
 
-        // cant divide by 0
+        //cant divide by 0
         if (distance < 1.0) {
             continue;
         }
 
-        //how much the star should shift
-        double shift = lensingStrength / distance;
+        //if the star is farther away, it should shift less than one much closer
+        double shift = lensStrength / pow(distance, 2); //we want further away ones to not move
+        //this should stop us from launching stars into other galxies, whcih we are doing rn
+        shift = std::min(shift, 30.0); //so the max travel distance is 30 pixels now
 
-        // Find the direction away from the black hole
+        //this tells us exact pos away from the blackhole
         double directionX = (starPosition.x - blackHoleX) / distance;
         double directionY = (starPosition.y - blackHoleY) / distance;
 
+        //so we want to curve the star around the black hole so we need angles
+        double angle = std::atan2(directionY, directionX);
+        double arcWidth = 0.15; //about 8 degrees
+        double arcBeginning = angle - (arcWidth / 2.0);
+        double arcEnd = angle + (arcWidth / 2.0);
+
+        //below will be the beginning and end points of the arcs of the stars
+        //formula is  x = xcenter + r*cos(theta) or sin for y
+        double arcBeginningX = blackHoleX + (distance * std::cos(arcBeginning));
+        double arcBeginningY = blackHoleY + (distance * std::sin(arcBeginning));
+        double arcEndX = blackHoleX + (distance * std::cos(arcEnd));
+        double arcEndY = blackHoleY + (distance * std::sin(arcEnd));
+
+        //okay so now we have to connect our arc points 
+        sf::VertexArray arc(sf::PrimitiveType::LineStrip, 2 );
+        //so we are setting pos to beginning and end
+        arc[0].position = {static_cast<float> (arcBeginningX),
+                            static_cast<float> (arcBeginningY)};
+
+        arc[1].position = {static_cast<float> (arcEndX),
+                            static_cast<float> (arcEndY)};
+
+        //we want to store these arcs in our vector
+        // we were drawing lines all over the place and it looked horrible, we only want close ones
+        if(distance < 100.0){
+            arcs.push_back(arc);
+        }
         // Calculate the new position
         float newX = static_cast<float>(starPosition.x + directionX * shift);
         float newY = static_cast<float>(starPosition.y + directionY * shift);
