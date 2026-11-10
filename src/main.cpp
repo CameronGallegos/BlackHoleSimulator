@@ -11,7 +11,7 @@ std::vector<sf::CircleShape> randomBackgroundStars(unsigned int, unsigned int);
 float shrinkStar(float, float, float, float);
 double calculateDistance(double, double, double, double);
 std::vector<sf::CircleShape> applyGravLensing(std::vector<sf::CircleShape>, double, double, 
-                                                double, std::vector<sf::VertexArray>&);
+                                                double, std::vector<sf::VertexArray>&, double);
 
 
 int main(){
@@ -71,8 +71,8 @@ int main(){
         //you would think == would be preferred here but some simulations did not work...something to do with precision i expect
         if(star.getRadius() <= static_cast<float>(schwarzschildRadiusPixels)){
             star.setFillColor(sf::Color::Black); //this line is quite obvious
-            star.setOutlineColor(sf::Color::White); 
-            star.setOutlineThickness(2.0f);
+            star.setOutlineColor(sf::Color(100, 100, 100, 150)); 
+            star.setOutlineThickness(0.99f);
         }
 
         //V2f is just a vecotr taht is very convenient for holding x and y
@@ -80,13 +80,24 @@ int main(){
         double lensingStrength = 100000.0 * (1.0 - (star.getRadius() / starRadOG));
         std::vector<sf::VertexArray> arcs;
         std::vector<sf::CircleShape> lensedStars = applyGravLensing(backgroundStars, blackholePosition.x, blackholePosition.y, 
-                                                        lensingStrength, arcs);
+                                                        lensingStrength, arcs, star.getRadius());
 
 
 
         //this will be at the bottom b/c we want to do all the math and fancy stuff and then draw what we calculated
-        //clear window and fill with black...b/c its in space 
-        window.clear(sf::Color::Black);
+        sf::CircleShape blackHoleShadow(star.getRadius() * 1.5f);
+        blackHoleShadow.setOrigin({
+            blackHoleShadow.getRadius(),
+            blackHoleShadow.getRadius()
+        });
+        //jsut setting up our shadow around
+        blackHoleShadow.setPosition(star.getPosition());
+        blackHoleShadow.setFillColor(sf::Color::Black);
+        blackHoleShadow.setOutlineColor(sf::Color(100, 100, 100, 150));
+        blackHoleShadow.setOutlineThickness(0.99f);
+        //clear window and fill with a dark blue to give it some contrast maybe?
+        //could cahnge the color more but i think we should maek the black hole alrger and we will really see a difference 
+        window.clear(sf::Color(3, 5, 12));
         //draw background first because main star can draw over it
         for(int i = 0; i < lensedStars.size(); i++){
             window.draw(lensedStars[i]);
@@ -95,7 +106,11 @@ int main(){
         for(int i = 0; i < arcs.size(); i++){
             window.draw(arcs[i]);
         }
-        window.draw(star);        
+        window.draw(star);      
+        //so the shadow will appear only once we have actually collapsed  
+        if (star.getRadius() <= static_cast<float>(schwarzschildRadiusPixels)) {
+            window.draw(blackHoleShadow);
+        }
         window.display(); //this will display waht we drew before
 
 
@@ -139,6 +154,7 @@ float shrinkStar(float currentRad, float schwarzschildRadiusPixels, float timeCh
         //star shrinks based on whatever we decide shrinkSpeed is (tweakable)
         //our max function prevents it from being a negative value
         //this got a bit messy but i think all can understand it
+        //never shrink below the schw radius
         return std::max(schwarzschildRadiusPixels,
             currentRad - (shrinkSpeed * timeChange)
         );
@@ -162,7 +178,8 @@ std::vector<sf::CircleShape> applyGravLensing(
     double blackHoleX,
     double blackHoleY,
     double lensStrength,
-    std::vector<sf::VertexArray>& arcs){
+    std::vector<sf::VertexArray>& arcs, 
+    double blackHoleRad){
     
 
     for (size_t i = 0; i < backgroundStars.size(); i++) {
@@ -198,6 +215,8 @@ std::vector<sf::CircleShape> applyGravLensing(
         double arcWidth = 0.5 * (lensStrength / 100000.0) * (100.0 / distance); 
         double arcBeginning = angle - (arcWidth / 2.0);
         double arcEnd = angle + (arcWidth / 2.0);
+        //so 10 pixels away form the radius
+        double arcRadius = blackHoleRad + 10.0 + (distance * 0.25);
 
         //okay so now we have to connect our arc points 
         //so before we have 2 points but what if we had 10 to make it actually curve...
@@ -205,9 +224,9 @@ std::vector<sf::CircleShape> applyGravLensing(
         //so we are setting pos to beginning and end
         for(int i = 0; i < 20; i++){
             double currentAngle = arcBeginning + ((i / 19.0) * (arcEnd - arcBeginning));
-
-            double currentX = blackHoleX + (distance * std::cos(currentAngle));
-            double currentY = blackHoleY + (distance * std::sin(currentAngle));
+            //this will make it curve around and also be dictated by the dsitance away
+            double currentX = blackHoleX + (arcRadius * std::cos(currentAngle));
+            double currentY = blackHoleY + (arcRadius * std::sin(currentAngle));
 
             arc[i].position = {static_cast<float>(currentX), static_cast<float>(currentY)};
         }
