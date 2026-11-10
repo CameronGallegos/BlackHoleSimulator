@@ -3,6 +3,7 @@
 #include <vector>
 #include <random>
 #include <cmath>
+#include <cstdint>
 
 //funct headers will go here
 double calculateSchwarzschildRadius(double);
@@ -193,30 +194,33 @@ std::vector<sf::CircleShape> applyGravLensing(
 
         //so we want to curve the star around the black hole so we need angles
         double angle = std::atan2(directionY, directionX);
-        double arcWidth = 0.15; //about 8 degrees
+        //new formula will make it gradually stretch isntead of static 
+        double arcWidth = 0.5 * (lensStrength / 100000.0) * (100.0 / distance); 
         double arcBeginning = angle - (arcWidth / 2.0);
         double arcEnd = angle + (arcWidth / 2.0);
 
-        //below will be the beginning and end points of the arcs of the stars
-        //formula is  x = xcenter + r*cos(theta) or sin for y
-        double arcBeginningX = blackHoleX + (distance * std::cos(arcBeginning));
-        double arcBeginningY = blackHoleY + (distance * std::sin(arcBeginning));
-        double arcEndX = blackHoleX + (distance * std::cos(arcEnd));
-        double arcEndY = blackHoleY + (distance * std::sin(arcEnd));
-
         //okay so now we have to connect our arc points 
-        sf::VertexArray arc(sf::PrimitiveType::LineStrip, 2 );
+        //so before we have 2 points but what if we had 10 to make it actually curve...
+        sf::VertexArray arc(sf::PrimitiveType::LineStrip, 20 );
         //so we are setting pos to beginning and end
-        arc[0].position = {static_cast<float> (arcBeginningX),
-                            static_cast<float> (arcBeginningY)};
+        for(int i = 0; i < 20; i++){
+            double currentAngle = arcBeginning + ((i / 19.0) * (arcEnd - arcBeginning));
 
-        arc[1].position = {static_cast<float> (arcEndX),
-                            static_cast<float> (arcEndY)};
+            double currentX = blackHoleX + (distance * std::cos(currentAngle));
+            double currentY = blackHoleY + (distance * std::sin(currentAngle));
 
+            arc[i].position = {static_cast<float>(currentX), static_cast<float>(currentY)};
+        }
         //we want to store these arcs in our vector
         // we were drawing lines all over the place and it looked horrible, we only want close ones
         if(distance < 100.0){
             arcs.push_back(arc);
+            //so we were still seeing the stars that we want as arcs, 
+            //so this will make them disappear after becoming the arc
+            //backgroundStars[i].setFillColor(sf::Color::Transparent);
+            double starFade = 1 - (lensStrength/ 100000.0);
+            std::uint8_t alpha = static_cast<std::uint8_t>(255 * std::clamp(starFade, 0.0, 1.0));            
+            backgroundStars[i].setFillColor(sf::Color(255, 255, 255, alpha));
         }
         // Calculate the new position
         float newX = static_cast<float>(starPosition.x + directionX * shift);
